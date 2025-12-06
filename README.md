@@ -64,6 +64,8 @@ cloud-network-security-labs/
 
 Each project has its own README explaining objectives, architecture, threat models, and interview talking points.
 
+---
+
 🛠 Tools & Services
 
 | Category         | AWS Services Used                                                                                    |
@@ -73,6 +75,8 @@ Each project has its own README explaining objectives, architecture, threat mode
 | SOAR Automation  | EventBridge, Lambda, SNS (alerts), tags & quarantine patterns                                        |
 | Logging / SIEM   | CloudWatch Logs, Amazon Security Lake, S3 (`cloud-soc-forensics-ca`), OpenSearch Dashboards (design) |
 | Data Protection  | KMS, IAM Access Analyzer, SCP-style guardrails (patterns), tokenization via DynamoDB + Lambda        |
+
+---
 
 Skill Outcomes (Resume / Interview)
 
@@ -92,6 +96,8 @@ This portfolio demonstrates:
 
 Interview-ready narratives are included in each project’s README.
 
+---
+
 Threat Scenarios Covered
 
 | Threat Type       | Example Scenario                                    | Mitigation                                                   |
@@ -101,6 +107,8 @@ Threat Scenarios Covered
 | 🟡 Insider Misuse | IAM user escalating privileges or exfiltrating data | CloudTrail + IAM Analyzer + SOAR deactivation & key rotation |
 
 Forensics are exported to the cloud-soc-forensics-ca S3 bucket in ca-central-1 with stricter controls than production.
+
+---
 
 Next Enhancements (In This Repo)
 Terraform Security Enhancements (Guardrails)
@@ -137,6 +145,8 @@ Fraud/anomaly IPs
 
 IAM privilege abuse events
 
+---
+
 Target Roles
 
 This portfolio is intentionally aligned to:
@@ -152,6 +162,8 @@ Cloud Security Analyst (Financial)
 XDR/SOAR Security Automation Engineer
 
 Cloud Security Architect (Banking / Fintech)
+
+---
 
 Author
 
