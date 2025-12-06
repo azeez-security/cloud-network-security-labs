@@ -65,8 +65,7 @@ cloud-network-security-labs/
 Each project has its own README explaining objectives, architecture, threat models, and interview talking points.
 
 ---
-
-## Tolls & Services
+**Tools & Services**
 
 | Category         | AWS Services Used                                                                                    |
 | ---------------- | ---------------------------------------------------------------------------------------------------- |
@@ -77,8 +76,7 @@ Each project has its own README explaining objectives, architecture, threat mode
 | Data Protection  | KMS, IAM Access Analyzer, SCP-style guardrails (patterns), tokenization via DynamoDB + Lambda        |
 
 ---
-
-## Skill Outcomes (Resume / Interview)
+**Skills Outcomes (Resume / Interview)**
 
 This portfolio demonstrates:
 
@@ -97,8 +95,7 @@ This portfolio demonstrates:
 Interview-ready narratives are included in each project’s README.
 
 ---
-
-## Threat Scenarios Covered
+**Threat Scenarios Covered**
 
 | Threat Type       | Example Scenario                                    | Mitigation                                                   |
 | ----------------- | --------------------------------------------------- | ------------------------------------------------------------ |
@@ -109,8 +106,7 @@ Interview-ready narratives are included in each project’s README.
 Forensics are exported to the cloud-soc-forensics-ca S3 bucket in ca-central-1 with stricter controls than production.
 
 ---
-
-## Next Enhancements (In This Repo)
+**Next Enhancements (In This Repo)**
 Terraform Security Enhancements (Guardrails)
 
 Planned guardrails include:
@@ -146,8 +142,7 @@ Fraud/anomaly IPs
 IAM privilege abuse events
 
 ---
-
-## Target Roles
+**Target Roles**
 
 This portfolio is intentionally aligned to:
 
@@ -164,8 +159,7 @@ XDR/SOAR Security Automation Engineer
 Cloud Security Architect (Banking / Fintech)
 
 ---
-
-## Author
+**Author**
 
 Cloud Security & Network Engineering Portfolio
 Focused on Banking / Fintech SOC Architecture & Zero-Trust Design.
