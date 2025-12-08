@@ -1,0 +1,40 @@
+# CODEOWNERS for cloud-network-security-labs
+# Bank / Financial-SOC style ownership model
+# ------------------------------------------
+
+# 🔹 Default owner for everything in this repo
+*                                   @azeez-security
+
+# 🔹 Terraform IaC – Zero-Trust Network (Project 1)
+/project-1-zero-trust/terraform/    @azeez-security
+/project-1-zero-trust/modules/      @azeez-security
+
+# 🔹 XDR + SOAR Automation (Project 2)
+/project-2-xdr-soar/                @azeez-security
+
+# 🔹 API Fraud & Bot Defense (Project 3)
+/project-3-api-security/            @azeez-security
+
+# 🔹 CIEM + Tokenization (Project 4)
+/project-4-ciem-tokenization/       @azeez-security
+
+# 🔹 SOC Dashboard / Security Lake / OpenSearch (Project 5)
+/project-5-soc-dashboard/           @azeez-security
+
+# 🔹 Security Docs & Governance
+/README.md                          @azeez-security
+/SECURITY.md                        @azeez-security
+/LICENSE                            @azeez-security
+
+# 🔹 SOC Evidence Artefacts
+/project-1-zero-trust/soc-evidence/ @azeez-security
+/project-2-xdr-soar/soc-evidence/   @azeez-security
+/project-3-api-security/soc-evidence/ @azeez-security
+/project-4-ciem-tokenization/soc-evidence/ @azeez-security
+/project-5-soc-dashboard/soc-evidence/ @azeez-security
+
+# 🔹 GitHub Config – Treated as Production Security
+/.github/workflows/                 @azeez-security
+/.github/CODEOWNERS                 @azeez-security
+/.github/ISSUE_TEMPLATE/            @azeez-security
+/.github/PULL_REQUEST_TEMPLATE.md   @azeez-security
