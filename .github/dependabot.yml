@@ -1,0 +1,44 @@
+version: 2
+updates:
+  # 1) Terraform – IaC for Zero-Trust / SOC labs
+  - package-ecosystem: "terraform"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    allow:
+      - dependency-type: "direct"
+    ignore:
+      # Patch-only: block major/minor bumps to avoid breaking infra
+      - update-types: ["version-update:major", "version-update:minor"]
+    labels:
+      - "dependencies"
+      - "security"
+      - "terraform"
+
+  # 2) GitHub Actions – CI/CD supply chain
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 3
+    ignore:
+      # Keep Actions changes small and low-risk
+      - update-types: ["version-update:major", "version-update:minor"]
+    labels:
+      - "dependencies"
+      - "security"
+      - "ci"
+
+  # 3) Docker – runtime images for tools / labs (future-proof)
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    ignore:
+      # Same patch-only policy for container images
+      - update-types: ["version-update:major", "version-update:minor"]
+    labels:
+      - "dependencies"
+      - "security"
+      - "docker"
