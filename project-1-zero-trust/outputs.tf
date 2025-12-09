@@ -22,3 +22,8 @@ output "logging_subnet_ids" {
   value       = module.subnets.logging_subnet_ids
   description = "Logging / security tools subnet IDs"
 }
+
+output "vpc_cidr" {
+  value       = var.vpc_cidr
+  description = "CIDR of the Tier-1 banking VPC"
+}

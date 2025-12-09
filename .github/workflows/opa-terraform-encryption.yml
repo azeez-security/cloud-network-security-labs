@@ -1,0 +1,71 @@
+name: OPA – Enforce Terraform Encryption
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  opa-encryption-guardrail:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    env:
+      TF_IN_AUTOMATION: "true"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.8.5
+
+      # Adjust path if you keep Terraform in a subfolder.
+      - name: Terraform init
+        working-directory: .
+        run: terraform init -input=false
+
+      - name: Terraform plan (no apply)
+        working-directory: .
+        run: |
+          terraform plan -out=tfplan.binary -input=false
+          terraform show -json tfplan.binary > terraform-plan.json
+
+      - name: Run OPA (Conftest) encryption checks
+        id: opa
+        continue-on-error: true
+        run: |
+          mkdir -p soc-evidence/policy-violations
+
+          # Install conftest (OPA-based)
+          curl -L https://github.com/open-policy-agent/conftest/releases/download/v0.53.0/conftest_0.53.0_Linux_x86_64.tar.gz \
+            | tar xz
+          sudo mv conftest /usr/local/bin/conftest
+
+          # Run policy with JSON output
+          conftest test terraform-plan.json \
+            --policy opa/terraform \
+            --output json > soc-evidence/policy-violations/opa-encryption-violations.json
+
+          # conftest exit code is preserved; GitHub will still mark this step
+          # as "failure" if deny rules fire, even with continue-on-error: true
+
+      - name: Upload OPA evidence (policy violations)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: opa-encryption-evidence
+          path: soc-evidence/policy-violations/opa-encryption-violations.json
+
+      - name: Fail pipeline if OPA denied
+        if: steps.opa.outcome == 'failure'
+        run: |
+          echo "::error::OPA policy violations detected – unencrypted resources blocked."
+          echo "Review soc-evidence/policy-violations/opa-encryption-violations.json for details."
+          exit 1

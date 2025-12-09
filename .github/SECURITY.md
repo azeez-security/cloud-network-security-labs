@@ -80,7 +80,17 @@ This repository aligns with:
 - **AWS Well-Architected Security Pillar**
 
 ---
+## Policy Guardrails
 
+This repo uses OPA-based checks in CI to:
+
+- Block unencrypted storage (S3, EBS, RDS) and Lambda environments.
+- Export machine-readable evidence for any policy violations to `/soc-evidence/policy-violations/`.
+
+Pull requests that violate these guardrails will fail and must be corrected
+before merge, mirroring a bank-grade change-control workflow.
+
+---
 ### Final Note
 
 *Security is a journey, not a checkbox.*  

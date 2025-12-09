@@ -1,143 +1,143 @@
-# Project 1 – Zero-Trust Micro-Segmented Banking Network (AWS)
+## Week 1 – VPC & Multi-Tier CIDR for a Tier-1 Bank
 
-> Phase 1 of 4 – Cloud Network Security Engineer (Financial Sector Portfolio)  
-> Foundation: VPC, Micro-Segmentation, Multi-Region Logging
+In Week 1 I designed and deployed the **foundational VPC** for a Tier-1 bank scenario with:
+
+- Core banking tier (accounts, ledger, payments)
+- Fraud / AML analytics tier
+- Logging / security tooling tier
+- Reserved space for ATM edge + DR / additional regions
+
+### CIDR Strategy (Designed for 3+ Regions, 5+ Environments)
+
+I treat **CIDR as a long-term risk & cost decision**, not just a technical detail.
+
+For this lab, I use:
+
+- `10.0.0.0/16` for **Region 1 – Lab/Prod**  
+- Within that /16, I conceptually reserve ranges for each major tier:
+
+| Tier / Use        | Example Range       | Notes |
+|-------------------|---------------------|-------|
+| Core-banking app  | `10.0.10.0/24+`     | Internal APIs, business logic |
+| Fraud / AML       | `10.0.20.0/24+`     | Analytics, scoring, AML jobs |
+| ATM edge (future) | `10.0.40.0/24+`     | Reserved for ATM / POS ingress |
+| Logging / tools   | `10.0.200.0/24+`    | VPC Flow Logs, collectors, SIEM agents |
+| Public ingress    | `10.0.0.0/24+`      | ALB/API front door, strictly filtered |
+
+**Current Week-1 implementation:**
+
+- Public subnets (ALB / API ingress):  
+  - `10.0.0.0/24` (us-east-1a), `10.0.1.0/24` (us-east-1b)
+- Core-banking app subnets:  
+  - `10.0.10.0/24` (us-east-1a), `10.0.11.0/24` (us-east-1b)
+- Fraud / AML subnets:  
+  - `10.0.20.0/24` (us-east-1a), `10.0.21.0/24` (us-east-1b)
+- Logging / security tooling subnets:  
+  - `10.0.200.0/24` (us-east-1a), `10.0.201.0/24` (us-east-1b)
+
+By reserving clear bands (0.x for ingress, 10.x for core, 20.x for fraud/AML, 200.x for logging), it becomes much easier for future teams to:
+
+- Extend the network to **DR regions** (e.g. `10.1.0.0/16` in another region)
+- Add **separate environments** (dev/test/prod) without overlapping CIDRs
+- Visually reason about which tier traffic belongs to during an incident.
+
+### DNS & VPC Flow Logs
+
+In this week I also:
+
+- Ensured the VPC has **DNS support + DNS hostnames** enabled so that:
+  - EC2 and future ECS/Lambda integrations use names, not IPs.
+- Configured **VPC Flow Logs to CloudWatch Logs**, tagged for:
+  - `Classification=Forensic`, `Usage=vpc-flow-logs`.
+
+These logs will later be exported to a **forensic bucket in another region** as part of Projects 2 and 5.
+
+### Real-World Challenge & Lesson Learned
+
+> **Challenge:** Many Tier-1 banks grow their networks organically. Years later, they discover that overlapping or poorly planned CIDR blocks make VPC peering, multi-region DR, or M&A integration almost impossible without a major re-architecture.
+
+> **Resolution:** In this project I designed CIDR blocks with **room for future regions and DR** from the beginning. The Tier/Range allocations and environment planning are documented in the repo so that:
+> - New environments or regions can be added without collisions.
+> - Security teams can quickly understand **which tier is which** just by looking at IP ranges.
+
+> **Lesson:** *CIDR design is not just a VPC detail — it is a long-term architectural and financial decision. A good plan avoids expensive downtime and rework later.*
 
 ---
 
-## 1. Objective
+## Week 1 – VPC & CIDR Strategy for a Tier-1 Bank
 
-Design and deploy a **Zero-Trust micro-segmented network** for a cloud-hosted banking platform using AWS, with:
+### What Was Built This Week
 
-- Strong East/West isolation (between app, DB, and logging tiers)
-- Least-privilege network paths
-- Multi-region logging for **forensics and compliance**
-- Terraform-based, modular, and repeatable architecture
+In Week 1, the focus is on laying down a **clean, scalable VPC foundation** for a Tier-1 bank:
 
-This project is the **network and observability foundation** for Projects 2–4 (XDR, API security, CIEM & data protection).
+- One **core VPC** with DNS support and DNS hostnames enabled.
+- **Multi-AZ design** (e.g., `us-east-1a`, `us-east-1b`) for resilience.
+- **Four logical tiers**, mapped to common banking domains:
+  - **Public / Edge Tier** – internet-facing entry point for online banking & ATM edge APIs.
+  - **Core-Banking App Tier** – internal services for core banking (payments, accounts, credit).
+  - **Fraud / AML Analytics Tier** – data & analytics layer that inspects transactions.
+  - **Logging / Security Tier** – SOC tooling, collectors, and future SIEM/Security Lake.
+- **VPC Flow Logs** enabled to **CloudWatch Logs** using a dedicated IAM role.
 
----
-
-## 2. Business & Security Outcomes
-
-- Reduce lateral movement risk for ransomware and internal threats
-- Provide clear network zones for compliance (PCI DSS, OSFI B-13, FFIEC)
-- Make all critical network activity observable and auditable
-- Enable future XDR/SOAR and fraud analytics
-
-| Outcome | Description |
-|--------|-------------|
-| Micro-segmentation | Separate public, app, DB, and logging tiers across AZs |
-| Least-privilege paths | Only required paths are opened between tiers |
-| Multi-region resilience | Logs stored in a different region from workloads |
-| Terraform IaC | Reproducible, version-controlled security architecture |
+This is the “network skeleton” that the remaining projects (XDR/SOAR, API security, CIEM, SOC dashboards) will build on.
 
 ---
 
-## 3. Regulatory Alignment
+### CIDR Allocation Strategy (Tier-1 Friendly)
 
-| Standard / Guidance | Relevant Requirement | How This Design Helps |
-|---------------------|----------------------|------------------------|
-| **OSFI B-13 (Canada)** | Technology & cyber-risk management, log retention | Multi-region logging, KMS encryption, VPC isolation |
-| **FFIEC / NYDFS (US)** | Network segmentation, forensics | Tiered VPC, flow logs, CloudTrail | 
-| **PCI DSS 4.0** | Cardholder data environment isolation | Isolated DB subnets, security groups, no direct internet |
-| **SOC 2 / ISO 27001** | Principle of least privilege | Security groups, IAM roles, subnet-level separation |
+The VPC is sized to support **multiple domains in one region** and to avoid future overlap when more regions and environments are added.
+
+Example strategy used in this lab:
+
+- **VPC CIDR (Region block):** `10.0.0.0/16`
+  - Gives 65,536 addresses in this region.
+- This `/16` is carved into **/20 blocks** for different domains:
+
+| Purpose / Domain          | CIDR Block     | Notes                                                 |
+|---------------------------|----------------|-------------------------------------------------------|
+| Public / ATM Edge Tier    | `10.0.0.0/20`  | Internet-facing ALB, bastion, API edge                |
+| Core-Banking App Tier     | `10.0.16.0/20` | App services (payments, accounts, credit services)    |
+| Fraud / AML / Analytics   | `10.0.32.0/20` | Fraud scoring, AML pipelines, risk analytics          |
+| Logging / Security Tools  | `10.0.48.0/20` | Flow logs, security agents, SIEM connectors           |
+| **Reserved for future**   | `10.0.64.0/20`+| Future DR, new regions, or new regulatory workloads   |
+
+Each `/20` block is then split across **two Availability Zones** with **1 public + 1 private subnet per AZ** for the tiers we implement in Week 1 (public + core + fraud + logging).
+
+This directly addresses a real Tier-1 problem: **CIDR chaos**. Instead of randomly assigning `/24` subnets that later collide across regions, the plan:
+
+- Reserves a **clean `/16` per region**.
+- Reserves **consistent blocks per domain** (core, ATM, fraud, logging).
+- Leaves headroom for **DR regions and new regulatory workloads**.
+
+All CIDRs are declared centrally in Terraform variables so that **network governance and security** can review and sign-off.
 
 ---
 
-## 4. Architecture Overview (Style B – With Legend)
+### Flow Logs & Observability
 
-### 4.1 High-Level Network Architecture
+To meet OSFI B-13 / PCI expectations around logging:
 
-```text
-                   ┌──────────────────────────────┐
-                   │          Internet            │
-                   └──────────────┬───────────────┘
-                                  │
-                           AWS WAF / Shield
-                                  │
-                        ┌─────────▼─────────┐
-                        │  Public Subnets   │
-                        │ (ALB / Bastion)   │
-                        └─────────┬─────────┘
-                                  │
-                     ┌────────────▼────────────┐
-                     │     App Subnets         │
-                     │ (Core Banking APIs,     │
-                     │  Microservices)         │
-                     └────────────┬────────────┘
-                                  │
-                     ┌────────────▼────────────┐
-                     │      DB Subnets         │
-                     │ (RDS, Ledger, Vault)    │
-                     └────────────┬────────────┘
-                                  │
-                     ┌────────────▼────────────┐
-                     │   Logging Subnets       │
-                     │ (Flow Logs, Security    │
-                     │  Tools, Inspectors)     │
-                     └─────────────────────────┘
+- A dedicated **CloudWatch Log Group** is created:  
+  `/vpc-flow-logs/<project>-flow-logs`
+- A **least-privilege IAM role** allows VPC Flow Logs to:
+  - Create log streams.
+  - Write log events.
+- **Traffic type** is set to `ALL`:
+  - Ingress, egress, and rejected connections are captured.
+- In later weeks, these logs will be:
+  - Routed to a **forensic S3 bucket** in `ca-central-1`.
+  - Ingested into **Security Lake / OpenSearch** for SOC dashboards.
 
-4.2 Multi-Region Log Topology
+---
 
-Region A – us-east-1 (Prod)        Region C – ca-central-1 (Forensics)
-────────────────────────────        ───────────────────────────────────
-VPC + Subnets + SGs           →     S3 Forensic Buckets (Object Lock)
-VPC Flow Logs                 →     CloudWatch Log Export
-CloudTrail Management Events  →     Cross-region replication
+### Week-1 Lesson Learned
 
-Legend
-Public Subnets – Internet-facing, strictly limited (ALB, optional bastion)
+> CIDR design is not just a subnetting exercise; it’s a **risk and cost decision**.
 
-App Subnets – Business logic / APIs, only reachable via ALB or PrivateLink
+By planning the `/16` and `/20` blocks up front, the bank avoids:
 
-DB Subnets – No Internet access, only from app tier SG
+- Peering failures due to overlapping CIDRs between regions.
+- Costly **re-architecture** when new digital products (e.g., instant payments, new ATM networks) come online.
+- Exposure from mis-segmented workloads (fraud/AML sharing networks with core transactional systems).
 
-Logging Subnets – Security tooling, SIEM collectors, flow logs
-
-Forensic Region – Region dedicated to long-term, immutable log retention
-
-5. Terraform Layout
-
-project-1-zero-trust/
-├── main.tf
-├── provider.tf
-├── variables.tf
-├── outputs.tf
-├── README.md
-└── modules/
-    ├── vpc/
-    │   ├── main.tf
-    │   ├── variables.tf
-    │   └── outputs.tf
-    ├── subnets/
-    │   ├── main.tf
-    │   ├── variables.tf
-    │   └── outputs.tf
-    ├── security/
-    │   ├── main.tf
-    │   ├── variables.tf
-    │   └── outputs.tf
-    └── logging/
-        ├── main.tf
-        ├── variables.tf
-        └── outputs.tf
-
-Key responsibilities:
-
-vpc/ – VPC, IGW, tags
-
-subnets/ – public/app/db/logging subnets (+ route tables)
-
-security/ – base security groups (will be hardened in later phases)
-
-logging/ – VPC Flow Logs → CloudWatch → cross-region S3 (forensics)
-
-6. Threat Model & Mitigations (Phase 1)
-
-| Threat                         | Control in This Project                |
-| ------------------------------ | -------------------------------------- |
-| Lateral movement between tiers | Micro-segmented subnets and tiered SGs |
-| Direct DB exposure             | DB subnets have no IGW / NAT           |
-| Undetected network scans       | Flow Logs (ALL) + central log region   |
-| Single-region outage           | Logs preserved in separate region      |
+This lab shows how to document and enforce a **bank-grade CIDR strategy** in Terraform so future changes stay controlled.

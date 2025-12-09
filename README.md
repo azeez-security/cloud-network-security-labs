@@ -159,6 +159,74 @@ XDR/SOAR Security Automation Engineer
 Cloud Security Architect (Banking / Fintech)
 
 ---
+### 🔐 Security Automation
+
+This repository enforces production-grade cloud security governance:
+
+| Control | Enforced By |
+|---------|-------------|
+| Dependency patching (patch-only) | Dependabot |
+| IaC vulnerability scanning | GitHub CodeQL |
+| Secret leak prevention | GitHub Secret Scanning |
+| Responsible vulnerability reporting | Security Policy |
+| Controlled disclosure | Security Advisories |
+
+> All changes are treated as **Zero-Trust IaC deployments** and require governance review.
+
+---
+### Governance Architecture Diagram
+
+```text
+Developer change
+     |
+     v
+ GitHub Pull Request
+     |
+     +--> Security PR template
+     |     (threat model + log/forensics checks)
+     |
+     v
+ GitHub Actions CI
+     |
+     |-- terraform fmt / validate
+     |-- terraform plan (lab only)
+     |-- (future) tfsec / OPA policy checks
+     v
+ GitHub Security Features
+     |
+     |-- CodeQL code scanning
+     |-- Secret scanning + push protection
+     |-- Dependabot (Terraform modules)
+     v
+ Branch protection + CODEOWNERS
+     |
+     +--> ❌ Block merge if any check fails
+     |
+     v
+ main branch (approved IaC only)
+     |
+     v
+ Terraform apply → AWS lab environment
+     |
+     |-- VPC / SG / TGW (Zero Trust)
+     |-- GuardDuty / Security Lake / CloudTrail
+     |-- S3 forensic buckets (ca-central-1)
+     |-- WAF + API Gateway + XDR/SOAR runbooks
+
+---
+### OPA Guardrails – Encryption Enforcement
+
+This portfolio treats Terraform plans like a production banking environment.
+
+- Every PR runs an **OPA (Open Policy Agent)** policy that inspects the Terraform plan.
+- Any **unencrypted S3 buckets, EBS volumes, RDS instances, or Lambda environments** cause the PR to fail.
+- Violations are exported as JSON evidence to `soc-evidence/policy-violations/opa-encryption-violations.json`
+  and uploaded as a GitHub Actions artifact for SOC review.
+
+This demonstrates how a financial institution could hard-stop insecure changes
+before they ever reach the cloud.
+
+---
 **Author**
 
 Cloud Security & Network Engineering Portfolio
