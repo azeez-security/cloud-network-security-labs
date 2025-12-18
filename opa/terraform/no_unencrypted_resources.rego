@@ -1,136 +1,163 @@
 package terraform.encryption
 
-# Bank-grade guardrail:
-# Deny any Terraform plan that creates storage or logging resources
-# without encryption enabled (KMS or equivalent).
-
-default deny = []
+import rego.v1
 
 ###############################################################################
 # Helpers
 ###############################################################################
 
-# Convenience: iterate over every planned resource change
-resource_change[rc] {
+# Managed resources being CREATED in this plan
+resource_change contains rc if {
   rc := input.resource_changes[_]
   rc.mode == "managed"
-  rc.change.actions[_] == "create"  # focus on creates; extend later for update
+  rc.change.actions[_] == "create"
+}
+
+# S3: encryption config exists AND uses aws:kms
+has_s3_kms_encryption(bucket_name) if {
+  enc := input.resource_changes[_]
+  enc.mode == "managed"
+  enc.type == "aws_s3_bucket_server_side_encryption_configuration"
+  enc.change.after.bucket == bucket_name
+
+  rule := enc.change.after.rule
+  def := rule.apply_server_side_encryption_by_default
+  def.sse_algorithm == "aws:kms"
+}
+
+# S3: Public Access Block exists AND all flags are true
+has_s3_public_access_block(bucket_name) if {
+  pab := input.resource_changes[_]
+  pab.mode == "managed"
+  pab.type == "aws_s3_bucket_public_access_block"
+  pab.change.after.bucket == bucket_name
+
+  pab.change.after.block_public_acls
+  pab.change.after.ignore_public_acls
+  pab.change.after.block_public_policy
+  pab.change.after.restrict_public_buckets
 }
 
 ###############################################################################
-# S3 – must have server-side encryption
+# Deny rules (Conftest reads `deny`)
 ###############################################################################
 
-unencrypted_s3[msg] {
+# S3 bucket must have KMS server-side encryption (via aws_s3_bucket_server_side_encryption_configuration)
+deny contains result if {
   rc := resource_change[_]
   rc.type == "aws_s3_bucket"
 
   after := rc.change.after
-  # No SSE block defined
-  not after.server_side_encryption_configuration
-
   bucket_name := after.bucket
-  msg := sprintf("S3 bucket %q has no server_side_encryption_configuration (KMS encryption required).", [bucket_name])
+
+  not has_s3_kms_encryption(bucket_name)
+
+  result := {
+    "msg": sprintf("S3 bucket %q has no server-side encryption (KMS required).", [bucket_name]),
+    "severity": "CRITICAL",
+    "resource": bucket_name,
+  }
 }
 
-###############################################################################
-# EBS – must be encrypted
-###############################################################################
+# S3 bucket must have Public Access Block (via aws_s3_bucket_public_access_block)
+deny contains result if {
+  rc := resource_change[_]
+  rc.type == "aws_s3_bucket"
 
-unencrypted_ebs[msg] {
+  after := rc.change.after
+  bucket_name := after.bucket
+
+  not has_s3_public_access_block(bucket_name)
+
+  result := {
+    "msg": sprintf("S3 bucket %q missing Public Access Block configuration.", [bucket_name]),
+    "severity": "HIGH",
+    "resource": bucket_name,
+  }
+}
+
+# EBS volume must be encrypted
+deny contains result if {
   rc := resource_change[_]
   rc.type == "aws_ebs_volume"
 
   after := rc.change.after
   not after.encrypted
-  volume_id := rc.name
 
-  msg := sprintf("EBS volume %q has encrypted = false (KMS-backed encryption required).", [volume_id])
+  result := {
+    "msg": sprintf("EBS volume %q has encrypted=false (KMS-backed encryption required).", [rc.name]),
+    "severity": "HIGH",
+    "resource": rc.name,
+  }
 }
 
-# Root volumes created via aws_instance
-unencrypted_ebs_root[msg] {
+# EC2 root block device must be encrypted (treat missing as non-compliant)
+deny contains result if {
   rc := resource_change[_]
   rc.type == "aws_instance"
 
   after := rc.change.after
-  block := after.root_block_device
 
+  some i
+  block := after.root_block_device[i]
   not block.encrypted
 
-  msg := sprintf("EC2 instance %q root_block_device is not encrypted (encrypted = false or omitted).", [after.tags.Name])
+  inst := after.tags.Name
+  result := {
+    "msg": sprintf("EC2 instance %q root_block_device is not encrypted.", [inst]),
+    "severity": "HIGH",
+    "resource": inst,
+  }
 }
 
-###############################################################################
-# RDS – must be storage_encrypted with KMS key
-###############################################################################
-
-unencrypted_rds[msg] {
+# RDS must be storage_encrypted
+deny contains result if {
   rc := resource_change[_]
   rc.type == "aws_db_instance"
 
   after := rc.change.after
-
   not after.storage_encrypted
-  identifier := after.identifier
 
-  msg := sprintf("RDS instance %q has storage_encrypted = false (required for banking workloads).", [identifier])
+  id := after.identifier
+  result := {
+    "msg": sprintf("RDS instance %q has storage_encrypted=false.", [id]),
+    "severity": "CRITICAL",
+    "resource": id,
+  }
 }
 
-missing_rds_kms_key[msg] {
+# RDS must specify a KMS key when encrypted
+deny contains result if {
   rc := resource_change[_]
   rc.type == "aws_db_instance"
 
   after := rc.change.after
-
   after.storage_encrypted
   not after.kms_key_id
 
-  identifier := after.identifier
-  msg := sprintf("RDS instance %q is encrypted but has no kms_key_id set (must be CMK, not default).", [identifier])
+  id := after.identifier
+  result := {
+    "msg": sprintf("RDS instance %q is encrypted but has no kms_key_id set (CMK required).", [id]),
+    "severity": "HIGH",
+    "resource": id,
+  }
 }
 
-###############################################################################
-# Lambda – environment variables must be encrypted with KMS CMK
-###############################################################################
-
-unencrypted_lambda_env[msg] {
+# Lambda env vars => must set kms_key_arn
+deny contains result if {
   rc := resource_change[_]
   rc.type == "aws_lambda_function"
 
   after := rc.change.after
+  after.environment.variables
+  count(after.environment.variables) > 0
 
-  # Lambda allows kms_key_arn to encrypt env variables.
   not after.kms_key_arn
 
-  fn_name := after.function_name
-  msg := sprintf("Lambda function %q has environment variables without kms_key_arn (KMS CMK required).", [fn_name])
-}
-
-###############################################################################
-# Master deny rule – used by Conftest / OPA
-###############################################################################
-
-deny[msg] {
-  msg := unencrypted_s3[_]
-}
-
-deny[msg] {
-  msg := unencrypted_ebs[_]
-}
-
-deny[msg] {
-  msg := unencrypted_ebs_root[_]
-}
-
-deny[msg] {
-  msg := unencrypted_rds[_]
-}
-
-deny[msg] {
-  msg := missing_rds_kms_key[_]
-}
-
-deny[msg] {
-  msg := unencrypted_lambda_env[_]
+  fn := after.function_name
+  result := {
+    "msg": sprintf("Lambda function %q has environment variables but no kms_key_arn (CMK required).", [fn]),
+    "severity": "HIGH",
+    "resource": fn,
+  }
 }

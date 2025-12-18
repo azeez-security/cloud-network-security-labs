@@ -1,0 +1,4 @@
+﻿FAIL - .\tfplan.json - terraform.encryption - S3 bucket "test-no-encryption" has no server-side encryption (KMS required).
+FAIL - .\tfplan.json - terraform.encryption - S3 bucket "test-no-encryption" missing Public Access Block configuration.
+
+7 tests, 5 passed, 0 warnings, 2 failures, 0 exceptions
