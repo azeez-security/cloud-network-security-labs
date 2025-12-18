@@ -57,6 +57,18 @@ module "subnets" {
   })
 }
 
+module "nacls" {
+  source = "./modules/nacls"
+
+  vpc_id             = module.vpc.vpc_id
+  vpc_cidr           = var.vpc_cidr
+  app_subnet_ids     = module.subnets.private_app_subnet_ids
+  db_subnet_ids      = module.subnets.private_db_subnet_ids
+  logging_subnet_ids = module.subnets.logging_subnet_ids
+
+  tags = local.common_tags
+}
+
 # ─────────────────────────────────────────────────────────────
 # Logging: VPC Flow Logs → CloudWatch (later replicated to forensics)
 # ─────────────────────────────────────────────────────────────
@@ -75,14 +87,16 @@ module "logging" {
 # Security groups skeleton (to be hardened in later weeks)
 # ─────────────────────────────────────────────────────────────
 module "security" {
-  source = "./modules/security"
-
+  source             = "./modules/security"
   vpc_id             = module.vpc.vpc_id
   app_subnet_ids     = module.subnets.private_app_subnet_ids
   db_subnet_ids      = module.subnets.private_db_subnet_ids
   logging_subnet_ids = module.subnets.logging_subnet_ids
 
+  db_backup_cidrs = ["10.0.240.0/24"] # example backup/ops network (TGW or separate VPC)
+
   tags = merge(local.common_tags, {
     Component = "network-security"
   })
 }
+

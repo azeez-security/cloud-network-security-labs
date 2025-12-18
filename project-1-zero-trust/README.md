@@ -52,7 +52,7 @@ In this week I also:
 
 These logs will later be exported to a **forensic bucket in another region** as part of Projects 2 and 5.
 
-### Real-World Challenge & Lesson Learned
+### Challenges & Lesson Learned
 
 > **Challenge:** Many Tier-1 banks grow their networks organically. Years later, they discover that overlapping or poorly planned CIDR blocks make VPC peering, multi-region DR, or M&A integration almost impossible without a major re-architecture.
 
@@ -83,7 +83,7 @@ This is the “network skeleton” that the remaining projects (XDR/SOAR, API se
 
 ---
 
-### CIDR Allocation Strategy (Tier-1 Friendly)
+### CIDR Allocation Strategy
 
 The VPC is sized to support **multiple domains in one region** and to avoid future overlap when more regions and environments are added.
 
@@ -128,6 +128,42 @@ To meet OSFI B-13 / PCI expectations around logging:
   - Routed to a **forensic S3 bucket** in `ca-central-1`.
   - Ingested into **Security Lake / OpenSearch** for SOC dashboards.
 
+```
+### Network Architecture Diagram (Tier-1 Bank – Week 1)
+
+```text
+                        ┌────────────────────────────┐
+                        │          Internet          │
+                        └─────────────┬──────────────┘
+                                      │
+                              AWS WAF / Shield
+                                      │
+                         ┌────────────▼─────────────┐
+                         │ Public Subnets (AZ A/B)  │
+                         │  - ALB / API Gateway     │
+                         │  - Optional bastion      │
+                         └────────────┬─────────────┘
+                                      │  HTTPS only
+         ┌─────────────────────────────┼──────────────────────────────┐
+         │                             │                              │
+         ▼                             ▼                              ▼
+┌─────────────────────┐     ┌─────────────────────┐        ┌─────────────────────┐
+│ Core Banking Apps   │     │ Fraud / AML Tier    │        │ Logging / Forensics │
+│ Private App Subnets │     │ Private DB Subnets  │        │ Logging Subnets     │
+│  - Online banking   │     │  - Fraud models     │        │  - VPC Flow Logs    │
+│  - Payments / APIs  │     │  - AML analytics    │        │  - SIEM collectors  │
+└─────────┬───────────┘     └─────────┬───────────┘        └─────────┬───────────┘
+          │                           │                              │
+          │                           │                              │
+          └───────────────┬───────────┴───────────────┬──────────────┘
+                          │                           │
+                          ▼                           ▼
+                ┌───────────────────┐        ┌───────────────────┐
+                │ Reserved CIDR for │        │ Forensic Region   │
+                │ ATM Edge Tier     │        │ (future: S3/SOC)  │
+                │ 10.0.16.0/20      │        │ ca-central-1      │
+                └───────────────────┘        └───────────────────┘
+
 ---
 
 ### Week-1 Lesson Learned
@@ -141,3 +177,183 @@ By planning the `/16` and `/20` blocks up front, the bank avoids:
 - Exposure from mis-segmented workloads (fraud/AML sharing networks with core transactional systems).
 
 This lab shows how to document and enforce a **bank-grade CIDR strategy** in Terraform so future changes stay controlled.
+
+---
+
+## Week 2 – Micro-Segmentation of Core, ATM, Fraud, and Logging Tiers
+
+In Week 2, I moved from “CIDR planning” to **enforced micro-segmentation**:
+
+- Each private tier now has its own **route table**:
+  - `app-rt` for core-banking app subnets
+  - `db-rt` for core DB / fraud-AML subnets
+  - `logging-rt` for logging & security tools
+- Only the **public / ATM edge** route table has a `0.0.0.0/0` route to the IGW.
+- I introduced a **bank-grade set of Security Groups**:
+
+| SG                        | Purpose                                                       |
+|---------------------------|---------------------------------------------------------------|
+| `sg-alb-edge`            | Internet-facing ALB / ATM edge (443 only from Internet)       |
+| `sg-core-app`            | Core-banking app tier (443 only from `sg-alb-edge`)           |
+| `sg-core-db`             | Core DB – only 5432 allowed from `sg-core-app`                |
+| `sg-fraud-analytics`     | Fraud/AML analytics – can read logs/events, no DB access      |
+| `sg-logging-tools`       | Logging / SIEM tools – only app + fraud tiers can reach it    |
+
+### How this prevents lateral movement
+
+- Malware on an ATM can only ever talk to the **ALB edge SG**.
+- The ALB cannot reach the DB directly; it must go through the **core app SG**.
+- The **core DB SG** only accepts DB traffic from the core app SG, not from ATM or fraud tiers.
+- Fraud/AML analytics systems **never see the DB directly** – they consume logs/events via the logging tools SG.
+- Logging tools are not Internet-facing and can only be reached from the app + fraud tiers.
+
+This matches how a real Tier-1 bank would argue that:
+
+> “Our ATM network and fraud systems are **logically and technically separated** from the core ledger. Even if an ATM is compromised, security groups and route tables ensure it cannot pivot into the DB tier.”
+
+### Week-2 Lesson Learned
+
+Network micro-segmentation is not just about “more subnets” – it’s about **enforcing explicit trust boundaries**:
+
+- Edge/ATM → App → DB is a **one-way, narrow path**.
+- Fraud/AML operates on **derived data and logs**, not on the raw core DB.
+- Logging and security tooling are **internal-only safety layers**, not another way into production.
+
+This Week-2 implementation gives me a concrete story to explain **how I would stop ATM malware from ever touching a core banking database** using AWS VPC, route tables, and security groups.
+
+---
+
+🔐 Week 3 — Security Groups vs NACLs (Default-Deny in a Tier-1 Financial Environment)
+
+Objective
+
+Enforce Zero-Trust network segmentation using Security Groups (identity-based controls) and Network ACLs (subnet guardrails) to:
+
+Stop lateral movement
+
+Prevent test → production leakage
+
+Meet PCI DSS, SOC 2, FFIEC, and NIST Zero Trust expectations
+
+---
+## Week 3 – SG vs NACL: Default-Deny in a Tier-1 Banking VPC
+
+In Week 3 I focused on **hardening east–west traffic** inside the VPC by combining:
+
+- **Security Groups (SGs)** as *stateful, workload-level firewalls*; and  
+- **Network ACLs (NACLs)** as *stateless, subnet-level guardrails* with default-deny.
+
+This is where the lab starts to look like a real Tier-1 bank network rather than a demo VPC.
+
+### 3.1 Security Groups per Tier
+
+I now have a distinct SG for each critical banking tier:
+
+- `sg-alb-edge` – Internet-facing ALB / ATM / online-banking edge
+- `sg-core-app` – Core-banking application services
+- `sg-core-db` – Core-banking database
+- `sg-fraud-analytics` – Fraud / AML analytics tier
+- `sg-logging-tools` – Logging / SIEM / security-lake collectors
+
+Key rules (implemented in `modules/security/main.tf`):
+
+- **Edge → App only on 443**
+
+  - `sg-core-app` *ingress* allows **HTTPS 443 only** from `sg-alb-edge`.
+  - Edge cannot talk directly to DB or logging tiers.
+
+- **App → DB only on DB port**
+
+  - `sg-core-db` *ingress* allows **5432/tcp only** from `sg-core-app`.
+  - No other SGs (edge, fraud, logging) can open DB connections.
+
+- **App & Fraud → Logging only on 443**
+
+  - `sg-logging-tools` *ingress* allows **443/tcp** from:
+    - `sg-core-app`
+    - `sg-fraud-analytics`
+  - There is **no ingress from 0.0.0.0/0** to logging.
+
+- **Strict DB outbound**
+
+  - `sg-core-db` egress is reduced from “any internal 10.0.0.0/16” to a **small, explicit backup CIDR** (`db_backup_cidrs`, example `10.0.240.0/24`).
+  - This models a **separate backup / ops network** reached via TGW or a dedicated VPC, which is how Tier-1 banks typically handle backups for PCI/critical data.
+
+This SG design means:
+
+- ATMs and browsers can *only* reach the **edge tier**, not DBs.
+- Core apps can *only* reach the DB and logging tiers on the **exact ports required**.
+- Fraud/AML can see logs and event streams, but **never talks to core DB directly**.
+
+### 3.2 NACLs as Subnet Guardrails
+
+SGs protect **workloads**. In Week 3 I added **NACLs** to protect entire **subnets** and to enforce a **default-deny posture** for sensitive tiers.
+
+Implemented in `modules/nacls/main.tf` (invoked from `module "nacls"` in `project-1-zero-trust/main.tf`):
+
+- **DB Subnet NACL**
+
+  - *Inbound allow*:
+    - 5432/tcp from **core-app subnets only**.
+    - Ephemeral ports (1024–65535) for return traffic to the app tier.
+  - *Inbound deny*:
+    - Any other source CIDR trying to hit DB ports is implicitly blocked.
+  - *Outbound allow*:
+    - Ephemeral ports back to core-app subnets.
+    - Optional controlled access to the backup CIDR (`10.0.240.0/24`) if used.
+  - Result: even if an SG is misconfigured later, **non-app subnets cannot talk to DB subnets**.
+
+- **Logging Subnet NACL**
+
+  - *Inbound allow*:
+    - 443/tcp from **core-app** and **fraud-analytics** subnet CIDRs.
+  - *Inbound deny*:
+    - Any traffic from `0.0.0.0/0` or public/edge ranges.
+    - Any traffic from non-logging-approved subnets.
+  - *Outbound allow*:
+    - Internal 10.0.0.0/16 (for shipping logs to SIEM / security lake).
+  - Result: logging becomes a **one-way sink** for telemetry – workloads send logs in, but cannot use logging subnets as a lateral-movement pivot.
+
+### 3.3 Stopping Lateral Movement
+
+Combined SG + NACL controls now stop common lateral-movement paths:
+
+- **ATM malware → DB**  
+  - Edge SG (`sg-alb-edge`) cannot reach DB SG (`sg-core-db`) at all.
+  - DB NACLs only accept 5432 from core-app subnet CIDRs.
+  - Even if an attacker compromises an ATM or edge node, **they cannot pivot directly into core DB**.
+
+- **Compromised fraud analytics → DB**  
+  - `sg-fraud-analytics` has **no rule** to talk to `sg-core-db`.
+  - DB NACLs also drop any 5432 connections originating from fraud-analytics subnets.
+
+- **Abusing logging tier as a jump box**  
+  - Logging SG only allows ingress from app + fraud SGs on 443.
+  - Logging NACL blocks any inbound from public / unapproved subnets.
+  - There is no SSH/RDP allowed, and outbound is restricted to internal networks only.
+
+### 3.4 Preventing Test → Prod Leakage
+
+In a real Tier-1 bank, test environments must **never** reach production fraud or core-banking services.
+
+In this lab I prepare for that by:
+
+- Using **environment-aware tags and variables** (`Environment = dev/test/prod`).
+- Designing CIDR blocks so that each environment gets **dedicated non-overlapping ranges**.
+- Planning NACL policies per environment so that:
+  - `dev` and `test` NACLs **cannot target prod CIDRs**, especially DB and fraud subnets.
+  - Terraform will encode these rules so that cross-environment access is structurally impossible, not just a “best-effort” process document.
+
+This sets up the pattern where:
+
+> **Any test → prod connectivity must be deliberately added and code-reviewed in Terraform**, which aligns with FFIEC / OSFI expectations around segmentation and change control.
+
+### 3.5 Week-3 Lesson Learned
+
+> Security Groups are the **surgical blades** of segmentation (per workload, stateful), while NACLs are the **concrete walls** (per subnet, stateless).
+
+By combining both with a **default-deny mindset**:
+
+- Lateral movement is stopped at **multiple layers** (SG and NACL).
+- Sensitive tiers (DB, logging) only ever see traffic from **known subnet ranges and SGs**.
+- Environment boundaries (dev/test/prod) can be enforced in code so that “test reaching prod” becomes a **Terraform diff**, not a surprise in production.

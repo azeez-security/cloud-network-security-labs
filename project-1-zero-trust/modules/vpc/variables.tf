@@ -9,14 +9,14 @@ variable "azs" {
 }
 
 variable "project_name" {
-  type        = string
+  type = string
 }
 
 variable "environment" {
-  type        = string
+  type = string
 }
 
 variable "tags" {
-  type        = map(string)
-  default     = {}
+  type    = map(string)
+  default = {}
 }
