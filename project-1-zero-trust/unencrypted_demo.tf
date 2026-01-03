@@ -9,5 +9,6 @@ variable "enable_insecure_demo" {
 
 resource "aws_s3_bucket" "unencrypted_demo" {
   count  = var.enable_insecure_demo ? 1 : 0
-  bucket = "test-no-encryption"
+  bucket = "azeez-test-no-encryption-01"
 }
+

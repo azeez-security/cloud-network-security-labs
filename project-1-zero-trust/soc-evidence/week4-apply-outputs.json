@@ -1,0 +1,68 @@
+﻿{
+  "logging_subnet_ids": {
+    "sensitive": false,
+    "type": [
+      "tuple",
+      [
+        "string",
+        "string"
+      ]
+    ],
+    "value": [
+      "subnet-0483d4e817650aaa0",
+      "subnet-0c6c20ac878d24e2a"
+    ]
+  },
+  "private_app_subnet_ids": {
+    "sensitive": false,
+    "type": [
+      "tuple",
+      [
+        "string",
+        "string"
+      ]
+    ],
+    "value": [
+      "subnet-05383196c98555da6",
+      "subnet-0b21117dab5c9a7c1"
+    ]
+  },
+  "private_db_subnet_ids": {
+    "sensitive": false,
+    "type": [
+      "tuple",
+      [
+        "string",
+        "string"
+      ]
+    ],
+    "value": [
+      "subnet-0bf61c6b767ef4722",
+      "subnet-00ff9d15eb5a3f6a5"
+    ]
+  },
+  "public_subnet_ids": {
+    "sensitive": false,
+    "type": [
+      "tuple",
+      [
+        "string",
+        "string"
+      ]
+    ],
+    "value": [
+      "subnet-0f973a3201e9b75fc",
+      "subnet-0fbd8027e33de460b"
+    ]
+  },
+  "vpc_cidr": {
+    "sensitive": false,
+    "type": "string",
+    "value": "10.0.0.0/16"
+  },
+  "vpc_id": {
+    "sensitive": false,
+    "type": "string",
+    "value": "vpc-09f5d53aa2fcba162"
+  }
+}

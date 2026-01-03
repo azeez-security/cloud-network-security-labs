@@ -64,3 +64,42 @@ variable "logging_subnet_cidrs" {
   default     = ["10.0.200.0/24", "10.0.201.0/24"]
   description = "Subnets for logging/security tooling and collectors."
 }
+
+variable "forensics_region" {
+  type        = string
+  description = "Region for forensic audit vault (Week 4)"
+  default     = "ca-central-1"
+}
+
+variable "forensics_bucket_name" {
+  type        = string
+  description = "S3 bucket name for immutable forensic logs (must be globally unique)"
+}
+
+variable "forensics_kms_alias" {
+  type        = string
+  description = "KMS alias name for forensic CMK"
+  default     = "alias/forensics-log-cmk"
+}
+
+variable "forensics_retention_days" {
+  type        = number
+  description = "CloudTrail retention in CloudWatch logs (days) for Week 4 evidence"
+  default     = 365
+}
+
+variable "classification_tag" {
+  type    = string
+  default = "Forensic"
+}
+
+variable "retention_tag" {
+  type    = string
+  default = "7y"
+}
+
+variable "unencrypted_demo_bucket_name" {
+  type        = string
+  description = "Globally-unique bucket name used for the intentionally insecure demo"
+  default     = ""
+}

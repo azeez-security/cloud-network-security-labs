@@ -1,3 +1,23 @@
+# Project 1 — Zero Trust Micro-Segmented Banking Network
+
+## Project Objective
+## Threat Model (Banking Context)
+## Architecture Overview
+
+---
+
+## Week 1 — VPC & Multi-Tier CIDR Strategy
+## Week 2 — Micro-Segmentation & Tier Isolation
+## Week 3 — Lateral Movement Prevention (SG vs NACL + Policy-as-Code)
+## Week 4 — Multi-Region Forensics & Immutable Log Design
+
+---
+
+## Regulatory Alignment
+## SOC Evidence Index
+## Interview Talking Points
+
+
 ## Week 1 – VPC & Multi-Tier CIDR for a Tier-1 Bank
 
 In Week 1 I designed and deployed the **foundational VPC** for a Tier-1 bank scenario with:
@@ -357,3 +377,91 @@ By combining both with a **default-deny mindset**:
 - Lateral movement is stopped at **multiple layers** (SG and NACL).
 - Sensitive tiers (DB, logging) only ever see traffic from **known subnet ranges and SGs**.
 - Environment boundaries (dev/test/prod) can be enforced in code so that “test reaching prod” becomes a **Terraform diff**, not a surprise in production.
+
+---
+
+## Week 4 — Multi-Region Forensics & Immutable Log Design (Zero Trust)
+
+### Objective
+Extend Zero Trust beyond access control into **forensic integrity**, ensuring that security evidence remains **tamper-proof, survivable, and regulator-ready** even if the primary AWS account or region is compromised.
+
+This week focuses on **post-breach trust** — a critical but often overlooked Zero Trust principle in Tier-1 financial institutions.
+
+---
+
+### Threat Scenario (Banking Context)
+
+> A threat actor gains privileged access in the primary production region and attempts to delete or alter logs to cover their tracks.
+
+Without cross-region isolation and immutability, **incident response and regulatory investigations fail**.
+
+---
+
+### Controls Implemented
+
+#### 1. Cross-Region Forensic Log Bucket
+- Dedicated S3 bucket in **ca-central-1**
+- Used exclusively for **forensic and audit evidence**
+- Separate from production workloads and teams
+
+**Design Principle:**  
+> *Logs must survive the failure or compromise of the environment that generated them.*
+
+---
+
+#### 2. KMS Customer-Managed Key (CMK) for Forensics
+- Dedicated CMK used only for forensic logs
+- Decryption restricted from application and workload roles
+- Enables crypto-separation between:
+  - Production workloads
+  - Security operations
+  - Audit functions
+
+**Zero Trust Principle Applied:**  
+> *No implicit trust — even administrators cannot decrypt forensic evidence without explicit authorization.*
+
+---
+
+#### 3. Immutable Storage (S3 Object Lock — WORM)
+- Object Lock enabled (design + documentation)
+- Intended for:
+  - CloudTrail logs
+  - VPC Flow Logs
+  - Security findings
+- Prevents deletion or modification during retention period
+
+**Regulatory Alignment:**
+- PCI DSS 4.0 (log integrity)
+- OSFI B-13 (evidence preservation)
+- FFIEC / NYDFS cyber incident retention expectations
+
+---
+
+#### 4. Mandatory Tagging for Compliance
+All forensic resources are tagged with:
+
+| Tag | Purpose |
+|----|--------|
+| `Classification=Forensic` | Identifies evidence-grade resources |
+| `Retention=7y` | Illustrative regulatory retention requirement |
+
+Tags support:
+- Automated compliance checks
+- Cost attribution
+- Audit discovery
+
+---
+
+### Evidence Produced
+SOC-ready evidence is stored under:
+
+```text
+project-1-zero-trust/soc-evidence/week-4-forensics/
+
+## 🛡 Governance, Assurance & Evidence
+
+This project enforces security, compliance, and financial guardrails using infrastructure-as-code and auditable artifacts.
+
+- **budgets/** – AWS Budgets + SNS alerts (FinOps cost guardrails)
+- **opa/terraform/** – Policy-as-Code (deny unencrypted resources, security baselines)
+- **soc-evidence/** – Immutable evidence, Terraform state exports, and audit artifacts

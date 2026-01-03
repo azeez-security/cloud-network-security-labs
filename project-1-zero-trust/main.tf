@@ -100,3 +100,33 @@ module "security" {
   })
 }
 
+data "aws_caller_identity" "current" {}
+
+locals {
+  default_tags = {
+    Project     = "Project-1-Zero-Trust"
+    Domain      = "FinOps"
+    Environment = "SecurityLab"
+    Owner       = data.aws_caller_identity.current.account_id
+  }
+}
+
+module "forensics_vault" {
+  source = "./modules/forensics"
+
+  providers = {
+    aws = aws.ca
+  }
+
+  bucket_name    = var.forensics_bucket_name
+  kms_alias      = var.forensics_kms_alias
+  classification = var.classification_tag
+  retention      = var.retention_tag
+
+  log_writer_role_arn   = aws_iam_role.forensics_log_writer.arn
+  soc_reader_role_arn   = aws_iam_role.forensics_soc_reader.arn
+  audit_reader_role_arn = aws_iam_role.forensics_audit_reader.arn
+  break_glass_role_arn  = aws_iam_role.forensics_break_glass.arn
+
+  tags = local.default_tags
+}
