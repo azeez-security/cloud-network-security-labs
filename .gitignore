@@ -41,3 +41,25 @@ tfplan
 tfplan.*
 *.binary
 artifacts/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# ZIP / build artifacts (generated)
+*.zip
+
+# Evidence / local SOC artifacts (should not be committed)
+soc-evidence/
+**/soc-evidence/
+**/evidence/
+**/*evidence*.json
+
+# Terraform local working dir (you already have .terraform/ but this makes it safer anywhere)
+**/.terraform/*
