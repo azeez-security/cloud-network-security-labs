@@ -1,22 +1,144 @@
-## Project 2 — Autonomous XDR + SOAR for Cloud Banking (Ransomware + IAM Abuse)
+### Project 2 — Autonomous XDR + SOAR Platform for Cloud Banking
 
-### What this demonstrates (Tier-1 banking outcomes)
-- Event-driven XDR/SOAR pipeline: AWS findings -> EventBridge -> SOAR Dispatcher (Lambda)
-- Automated containment patterns (guardrails-first): quarantine / IAM key disable (configurable)
-- SOC-grade evidence capture: every incident produces an immutable JSON evidence trail in S3 for audit and post-incident review
+Ransomware | IAM Credential Abuse | Automated Incident Response
 
-### Architecture (high level)
-1. GuardDuty + Security Hub generate normalized security findings
-2. EventBridge rule matches high-severity / selected finding types
-3. SOAR Dispatcher Lambda parses the finding and routes actions:
-   - IAM abuse -> disable access keys (optional)
-   - Ransomware / EC2 threat -> quarantine and snapshot (optional)
-4. Evidence is written to S3 under a date + finding-id prefix, including a summary file for quick review
+## Executive Summary
 
-### Evidence (how to validate)
-- CloudWatch Logs: SOAR Dispatcher invocation lifecycle + returned JSON output
-- S3 Evidence Bucket: `/project-2-xdr-soar/evidence/YYYY/MM/DD/<finding-id>/_summary.json`
+This project implements a production-grade, event-driven XDR + SOAR architecture on AWS, designed to detect, triage, and automatically respond to high-risk cloud security incidents while preserving immutable forensic evidence for audit and investigation.
 
-### Terraform
-- `project-2-xdr-soar/terraform/` = deployable root
-- `project-2-xdr-soar/modules/security/` = modular security controls (SecurityHub, GuardDuty, SOAR Lambda, S3 evidence)
+The solution demonstrates how banking and fintech SOC teams can move from alert-driven monitoring to policy-driven, automated containment, reducing MTTR without compromising operational safety or compliance.
+
+## Business & Security Outcomes (Tier-1 Banking Lens)
+
+Automated detection and response for high-confidence threats
+
+Guardrail-based remediation (no unsafe shutdowns)
+
+Full forensic traceability for audits and post-incident review
+
+Serverless, scalable security automation aligned with Zero Trust principles
+
+Core Capabilities Demonstrated
+
+XDR Signal Correlation
+Centralized normalization of GuardDuty findings via AWS Security Hub.
+
+SOAR Decision Engine
+Severity-aware, threat-type-aware response routing using Lambda.
+
+Automated Containment
+EC2 quarantine, forensic snapshot creation, and IAM access key deactivation.
+
+Evidence-First Design
+Immutable, structured JSON artifacts written to S3 for every incident.
+
+## Architecture Overview
+# Detection & Response Flow
+
+Amazon GuardDuty detects threats such as ransomware activity and IAM abuse
+
+AWS Security Hub normalizes findings into a common schema
+
+Amazon EventBridge filters and routes relevant findings in real time
+
+SOAR Dispatcher (AWS Lambda) evaluates severity and context
+
+Automated remediation is executed based on policy
+
+Forensic evidence is written to Amazon S3
+
+Execution lifecycle is logged in CloudWatch
+
+## nArchitecture Diagram (ASCII)
+
+┌──────────────────┐
+│  Amazon GuardDuty│
+│ (Threat Detection)│
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│ AWS Security Hub │
+│ (Normalization)  │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│ Amazon EventBridge│
+│ (Rule Filtering) │
+└────────┬─────────┘
+         │
+         ▼
+┌─────────────────────────────┐
+│ SOAR Dispatcher (Lambda)    │
+│ ─ Severity evaluation       │
+│ ─ Threat-type routing       │
+│ ─ Guardrail enforcement     │
+└───────┬───────────┬────────┘
+        │           │
+        ▼           ▼
+┌──────────────┐  ┌──────────────────┐
+│ EC2 Quarantine│  │ IAM Key Disable  │
+│ + Snapshots   │  │ (Credential IR) │
+└───────┬──────┘  └─────────┬────────┘
+        │                   │
+        └──────────┬────────┘
+                   ▼
+          ┌──────────────────┐
+          │ Amazon S3 Evidence│
+          │ (Immutable JSON) │
+          └──────────────────┘
+
+
+## SOAR Logic Highlights
+
+Severity-based decision engine (HIGH / CRITICAL focus)
+
+Modular remediation actions (EC2, IAM, Evidence)
+
+Feature flags for safe enable/disable of auto-response
+
+Deterministic Lambda packaging via Terraform
+
+Designed for future expansion (WAF, fraud, bot defense)
+
+## Security & Engineering Best Practices
+
+Infrastructure as Code (Terraform)
+
+Least-privilege IAM policies
+
+Event-driven, serverless architecture
+
+Immutable, versioned forensic evidence
+
+SOC-aligned incident response patterns
+
+## Evidence & Validation
+
+CloudWatch Logs
+
+Lambda START / END lifecycle
+
+Execution duration, memory usage, returned JSON output
+
+S3 Evidence Store
+/project-2-xdr-soar/evidence/2026/01/17/24f811b0-3cf0-46ab-a113-5c88c315532d/_summary.json
+
+## Terraform Structure
+
+terraform/ – root deployment configuration
+
+modules/security/ – GuardDuty, Security Hub, EventBridge, SOAR Lambda, S3 evidence
+
+## Enterprise Use Cases
+
+Automated containment of compromised EC2 instances
+
+Rapid IAM credential revocation
+
+SOC alert fatigue reduction
+
+Audit-ready forensic evidence retention
+
+Cloud-native SOAR reference architecture
