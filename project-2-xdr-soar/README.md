@@ -51,31 +51,39 @@ Execution lifecycle is logged in CloudWatch
 
 ## Architecture Diagram (ASCII)
 
-[ GuardDuty ]
-     |
-     v
-[ Security Hub ]
-     |
-     v
-[ EventBridge ]
-     |
-     v
-[ SOAR Dispatcher (Lambda) ]
-     |              |
-     |              |
-     v              v
-[ EC2 Response ]  [ IAM Response ]
-  - Quarantine      - Disable Keys
-  - Snapshot
-        \            /
-         \          /
-          v        v
-     [ S3 Evidence Store ]
-     - Immutable JSON
-     - Metadata
-     - Audit Trail
+---
 
-(All actions logged in CloudWatch Logs)
+```text
+Architecture Diagram (Project 2 — XDR + SOAR)
+
+[ Amazon GuardDuty ]
+          |
+          v
+[ AWS Security Hub ]
+ (Finding Normalization)
+          |
+          v
+[ Amazon EventBridge ]
+ (Rule Filtering / Routing)
+          |
+          v
+[ SOAR Dispatcher (Lambda) ]
+          |
+          +-----------------------------+
+          |                             |
+          v                             v
+[ EC2 Threat Response ]        [ IAM Abuse Response ]
+ - Quarantine Instance         - Disable Access Keys
+ - Snapshot for Forensics      - Credential IR
+          |
+          v
+[ Amazon S3 Evidence Store ]
+ - Immutable JSON Evidence
+ - Finding Metadata
+ - Response Timeline
+ - Audit & Compliance Artifacts
+
+(All actions logged via Amazon CloudWatch Logs)
 
 GuardDuty produces raw detections, Security Hub normalizes them, EventBridge applies routing logic, and a Lambda-based SOAR engine enforces guardrails — quarantining EC2, disabling IAM keys, and persisting immutable evidence in S3 for audit and post-incident review.
 
