@@ -49,46 +49,56 @@ Forensic evidence is written to Amazon S3
 
 Execution lifecycle is logged in CloudWatch
 
-## nArchitecture Diagram (ASCII)
+## Architecture Diagram (ASCII)
 
-┌──────────────────┐
-│  Amazon GuardDuty│
-│ (Threat Detection)│
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────┐
-│ AWS Security Hub │
-│ (Normalization)  │
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────┐
-│ Amazon EventBridge│
-│ (Rule Filtering) │
-└────────┬─────────┘
-         │
-         ▼
-┌─────────────────────────────┐
-│ SOAR Dispatcher (Lambda)    │
-│ ─ Severity evaluation       │
-│ ─ Threat-type routing       │
-│ ─ Guardrail enforcement     │
-└───────┬───────────┬────────┘
-        │           │
-        ▼           ▼
-┌──────────────┐  ┌──────────────────┐
-│ EC2 Quarantine│  │ IAM Key Disable  │
-│ + Snapshots   │  │ (Credential IR) │
-└───────┬──────┘  └─────────┬────────┘
-        │                   │
-        └──────────┬────────┘
-                   ▼
-          ┌──────────────────┐
-          │ Amazon S3 Evidence│
-          │ (Immutable JSON) │
-          └──────────────────┘
+┌───────────────────────┐
+│   Amazon GuardDuty    │
+│  (Threat Detection)   │
+└───────────┬───────────┘
+            │
+            ▼
+┌───────────────────────┐
+│  AWS Security Hub     │
+│ (Finding Normalization│
+│  & Aggregation)       │
+└───────────┬───────────┘
+            │
+            ▼
+┌────────────────────────────────────┐
+│        Amazon EventBridge           │
+│   (Rule Filtering & Routing)        │
+└───────────┬────────────────────────┘
+            │
+            ▼
+┌────────────────────────────────────┐
+│   SOAR Dispatcher (AWS Lambda)      │
+│                                    │
+│  • Severity Evaluation              │
+│  • Threat-Type Classification       │
+│  • Guardrail Enforcement            │
+│                                    │
+│  ┌──────────────┐  ┌─────────────┐ │
+│  │ EC2 Threats  │  │ IAM Abuse   │ │
+│  │              │  │             │ │
+│  │ • Quarantine │  │ • Disable   │ │
+│  │ • Snapshot   │  │   AccessKey │ │
+│  └──────┬───────┘  └──────┬──────┘ │
+│         │                  │        │
+└─────────┼──────────────────┼────────┘
+          │                  │
+          ▼                  ▼
+┌────────────────────────────────────┐
+│     Amazon S3 – Evidence Store      │
+│                                    │
+│  • Immutable JSON Evidence          │
+│  • Finding Metadata                │
+│  • Response Actions Timeline       │
+│  • Audit & Compliance Artifacts    │
+└────────────────────────────────────┘
 
+(All actions logged via Amazon CloudWatch Logs)
+
+GuardDuty produces raw detections, Security Hub normalizes them, EventBridge applies routing logic, and a Lambda-based SOAR engine enforces guardrails — quarantining EC2, disabling IAM keys, and persisting immutable evidence in S3 for audit and post-incident review.
 
 ## SOAR Logic Highlights
 
